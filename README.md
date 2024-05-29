@@ -1,8 +1,14 @@
 # adapter-compiler
-Convert a PyTorch models with adapters to a compiled model to swap adapters at runtime.
+Convert PyTorch models with adapters to compiled models to swap adapters at runtime.
 
 
-## Environment
+## Run
+```bash
+python3 adapter_compiler/main.py
+```
+
+
+## Environment (Linux)
 
 With CUDA
 ```bash
@@ -11,7 +17,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Withouth CUDA (Linux)
+Withouth CUDA 
 
 
 ```bash
