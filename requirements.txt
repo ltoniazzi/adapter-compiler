@@ -1,3 +1,4 @@
 onnxruntime==1.18.0
 onnx==1.16.1
 torch==2.3.0
+netron==7.7.0
