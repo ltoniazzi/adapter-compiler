@@ -2,3 +2,5 @@ onnxruntime==1.18.0
 onnx==1.16.1
 torch==2.3.0
 netron==7.7.0
+transformers==4.41.1
+peft==0.11.1 
