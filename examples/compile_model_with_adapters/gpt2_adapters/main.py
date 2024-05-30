@@ -11,6 +11,7 @@ import torch
 import torch.nn as nn
 from transformers import GPT2Model, GPT2Tokenizer
 from peft import get_peft_model, LoraConfig, PeftType
+import netron
 
 # Define the LoRA Adapter class
 class LoRAAdapter(nn.Module):
@@ -53,6 +54,34 @@ class ConditionalLoRAModel(nn.Module):
             raise ValueError("adapter_number not valid")
 
         return last_hidden_state
+
+
+# Define the main model with conditional LoRA adapters
+class Model(nn.Module):
+    def __init__(self, gpt_model):
+        super(Model, self).__init__()
+        self.gpt_model = gpt_model
+        
+
+    def apply_through_layers(self, input_tensor):
+        output = input_tensor
+        for layer in self.gpt_model_children:
+            # If the layer contains submodules, apply the input through each submodule
+            if isinstance(layer, nn.Sequential) or isinstance(layer, nn.ModuleList):
+                for sublayer in layer:
+                    output = sublayer(output)
+            else:
+                output = layer(output)
+        return output
+
+
+    def forward(self, x, adapter_number):
+        # outputs = self.apply_through_layers(self, x)
+        output = x
+        for layer in self.gpt_model:
+            output = layer(output)
+        
+        return outputs
 
 
 def export_model_with_adapters(model, dummy_input, model_path):
@@ -107,18 +136,37 @@ def add_adapters(model_name, adapters_paths):
 
 if __name__ == "__main__":
 
+    use_netron = True
+
     models_folder = ROOT_FOLDER / "models"
     model_name = "gpt2"
     n_adapters = (1, 2)
     adapters_paths = [models_folder / f"{model_name}_lora_adapter_{num}.pt" for num in n_adapters]
     model_path = models_folder / f"{model_name}_with_adapters.onnx"
 
-    model = add_adapters(model_name=model_name, adapters_paths=adapters_paths)
+    # model = add_adapters(model_name=model_name, adapters_paths=adapters_paths)
+    model = GPT2Model.from_pretrained(model_name)
+
+    # Need to unpack every layer:
+    # RuntimeError: 
+    # Module 'Model' has no attribute 'gpt_model' (This attribute exists on the Python module, but we failed to convert Python type:
+    #  'list' to a TorchScript type. Could not infer type of list element: Cannot infer concrete type of torch.nn.Module. 
+    # Its type was inferred; try adding a type annotation for the attribute.):
+    model_layers = []
+    for layer in model.children():
+            # If the layer contains submodules, apply the input through each submodule
+            if isinstance(layer, nn.Sequential) or isinstance(layer, nn.ModuleList):
+                for sublayer in layer:
+                    model_layers.append(sublayer)
+            else:
+                model_layers.append(layer)
+    model = Model(model_layers)
 
 
+    export_model_with_adapters(model=model, dummy_input=torch.randn(1, 10), model_path=model_path)
 
-    export_model_with_adapters(model=model, dummy_input=torch.randn(1, 10))
-
+    if use_netron:
+        netron.start(model_path)
     # Prepare inputs where int inputs that allow to swap the adapter
     dummy_input = torch.randn(1, 10)
     adapter_number_1 = torch.tensor([1], dtype=torch.int)
